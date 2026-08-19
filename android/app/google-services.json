@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "8298251409",
+    "project_id": "soundsight-b1d16",
+    "storage_bucket": "soundsight-b1d16.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8298251409:android:c0621fa5fb3c6dd2902b30",
+        "android_client_info": {
+          "package_name": "com.example.soundsight"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6067FzKwxDcRDjAORC1MInGQtOVrHuWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8298251409:android:3917b61e45db95e1902b30",
+        "android_client_info": {
+          "package_name": "com.example.soundsight_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6067FzKwxDcRDjAORC1MInGQtOVrHuWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
