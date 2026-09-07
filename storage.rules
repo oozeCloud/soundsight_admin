@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isVerifiedUser() {
+      return request.auth != null
+             && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return request.auth != null
+             && firestore.get(
+                  /databases/(default)/documents/admins/$(request.auth.uid)
+                ).data.enabled == true;
+    }
+
+    match /challenges/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /fundamentals/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /pieces/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /profilePictures/{userId}/{fileName} {
+      allow read: if isVerifiedUser();
+
+      allow create, update: if isVerifiedUser()
+                            && request.auth.uid == userId
+                            && request.resource.size < 5 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isVerifiedUser()
+                    && request.auth.uid == userId;
+    }
+
+    match /musicSheets/{ownerId}/{sheetId}/{fileName} {
+      allow read: if isVerifiedUser()
+                  && request.auth.uid == ownerId;
+
+      allow create, update: if isVerifiedUser()
+                            && request.auth.uid == ownerId
+                            && (
+                              (
+                                request.resource.contentType.matches('image/.*')
+                                && request.resource.size <= 5 * 1024 * 1024
+                                && fileName.matches('page_(0[1-9]|1[0-9]|20)[.](jpg|jpeg|png|heic|webp)')
+                              )
+                              ||
+                              (
+                                request.resource.contentType == 'application/pdf'
+                                && request.resource.size <= 20 * 1024 * 1024
+                                && fileName == 'sheet.pdf'
+                              )
+                            );
+
+      allow delete: if isVerifiedUser()
+                    && request.auth.uid == ownerId;
+    }
+
+    match /published_compositions/{ownerId}/{fileName} {
+      allow read: if isVerifiedUser();
+
+      allow create, update, delete: if false;
+    }
+
+    match /published_compositions/{ownerId}/{compositionId}/{fileName} {
+      allow read: if isVerifiedUser();
+
+      allow create, update, delete: if false;
+    }
+
+  }
+}
