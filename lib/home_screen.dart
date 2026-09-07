@@ -2,7 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'challenges_screen.dart';
+import 'fundamentals_screen.dart';
 import 'pieces_screen.dart';
+import 'users_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,7 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final email = FirebaseAuth.instance.currentUser?.email ?? 'Admin';
     final pages = [
       const ChallengesScreen(),
+      const FundamentalsScreen(),
       const PiecesScreen(),
+      const UsersScreen(),
     ];
 
     return Scaffold(
@@ -28,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             width: 240,
             child: Material(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFF8FAFC),
               child: SafeArea(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,9 +60,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     _SidebarTile(
                       selected: _selectedIndex == 1,
+                      icon: Icons.menu_book_outlined,
+                      title: 'Fundamentals',
+                      onTap: () => setState(() => _selectedIndex = 1),
+                    ),
+                    _SidebarTile(
+                      selected: _selectedIndex == 2,
                       icon: Icons.library_music_outlined,
                       title: 'Pieces',
-                      onTap: () => setState(() => _selectedIndex = 1),
+                      onTap: () => setState(() => _selectedIndex = 2),
+                    ),
+                    _SidebarTile(
+                      selected: _selectedIndex == 3,
+                      icon: Icons.people_outline,
+                      title: 'Users',
+                      onTap: () => setState(() => _selectedIndex = 3),
                     ),
                     const Spacer(),
                     ListTile(
@@ -95,7 +111,7 @@ class _SidebarTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       selected: selected,
-      selectedTileColor: const Color(0xFFE0E7FF),
+      selectedTileColor: const Color(0xFFEFF6FF),
       leading: Icon(icon),
       title: Text(title),
       onTap: onTap,

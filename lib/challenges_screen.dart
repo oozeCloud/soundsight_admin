@@ -50,13 +50,30 @@ class ChallengesScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: levels.length,
-            separatorBuilder: (_, __) => const Divider(),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final level = levels[index].data()['level'] as int;
 
               return ListTile(
                 title: Text('Level $level'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit level',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => AddLevelScreen(doc: levels[index])),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete level',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteLevel(context, levels[index]),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -70,6 +87,39 @@ class ChallengesScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _deleteLevel(
+    BuildContext context,
+    QueryDocumentSnapshot<Map<String, dynamic>> levelDoc,
+  ) async {
+    final level = levelDoc.data()['level'] as int;
+    final items = await FirebaseFirestore.instance
+        .collection('challenge_items')
+        .where('level', isEqualTo: level)
+        .limit(1)
+        .get();
+    if (items.docs.isNotEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Delete this level\'s items before deleting the level.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Level $level?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed == true) await levelDoc.reference.delete();
   }
 }
 
@@ -128,7 +178,7 @@ class LevelItemsScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             children: [
               _CategoryList(title: 'Exercises', docs: exercises),
-              const Divider(),
+              const SizedBox(height: 16),
               _CategoryList(title: 'Pieces', docs: pieces),
             ],
           );
@@ -198,39 +248,44 @@ class _CategoryList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ListTile(title: Text(title)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+        ),
         for (final doc in docs)
-          ListTile(
-            contentPadding: const EdgeInsets.only(left: 32, right: 16),
-            title: Text('${doc.data()['title']}'),
-            subtitle: Text(
-              'Points: ${doc.data()['points'] ?? 0}\nMusicXML: ${doc.data()['musicXmlFileName']}\nMIDI: ${doc.data()['midiFileName']}\nPDF: ${doc.data()['pdfFileName'] ?? 'None'}',
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Edit',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => AddChallengeItemScreen(
-                          level: doc.data()['level'] as int,
-                          doc: doc,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              title: Text('${doc.data()['title']}'),
+              subtitle: Text(
+                'Points: ${doc.data()['points'] ?? 0}\nMusicXML: ${doc.data()['musicXmlFileName']}\nMIDI: ${doc.data()['midiFileName']}\nPDF: ${doc.data()['pdfFileName'] ?? 'None'}',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Edit',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AddChallengeItemScreen(
+                            level: doc.data()['level'] as int,
+                            doc: doc,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Delete',
-                  onPressed: () => _deleteItem(context, doc),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
+                      );
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete',
+                    onPressed: () => _deleteItem(context, doc),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+              isThreeLine: true,
             ),
-            isThreeLine: true,
           ),
       ],
     );
@@ -238,7 +293,9 @@ class _CategoryList extends StatelessWidget {
 }
 
 class AddLevelScreen extends StatefulWidget {
-  const AddLevelScreen({super.key});
+  const AddLevelScreen({super.key, this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>>? doc;
 
   @override
   State<AddLevelScreen> createState() => _AddLevelScreenState();
@@ -249,6 +306,13 @@ class _AddLevelScreenState extends State<AddLevelScreen> {
   final _levelController = TextEditingController();
   bool _isSaving = false;
   String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    final level = widget.doc?.data()['level'];
+    if (level != null) _levelController.text = '$level';
+  }
 
   @override
   void dispose() {
@@ -266,10 +330,25 @@ class _AddLevelScreenState extends State<AddLevelScreen> {
 
     try {
       final level = int.parse(_levelController.text.trim());
-      await FirebaseFirestore.instance
-          .collection('challenge_levels')
-          .doc('level_$level')
-          .set({'level': level, 'createdAt': FieldValue.serverTimestamp()});
+      final oldLevel = widget.doc?.data()['level'] as int?;
+      final doc = widget.doc?.reference ??
+          FirebaseFirestore.instance.collection('challenge_levels').doc('level_$level');
+      await doc.set({
+        'level': level,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (widget.doc == null) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (oldLevel != null && oldLevel != level) {
+        final items = await FirebaseFirestore.instance
+            .collection('challenge_items')
+            .where('level', isEqualTo: oldLevel)
+            .get();
+        final batch = FirebaseFirestore.instance.batch();
+        for (final item in items.docs) {
+          batch.update(item.reference, {'level': level});
+        }
+        await batch.commit();
+      }
 
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
@@ -282,7 +361,7 @@ class _AddLevelScreenState extends State<AddLevelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add level')),
+      appBar: AppBar(title: Text(widget.doc == null ? 'Add level' : 'Edit level')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -299,15 +378,16 @@ class _AddLevelScreenState extends State<AddLevelScreen> {
                   ),
                   validator: (value) {
                     final level = int.tryParse(value?.trim() ?? '');
-                    if (level == null || level <= 0)
+                    if (level == null || level <= 0) {
                       return 'Enter a valid level number.';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _isSaving ? null : _save,
-                  child: Text(_isSaving ? 'Saving...' : 'Save level'),
+                  child: Text(_isSaving ? 'Saving...' : widget.doc == null ? 'Save level' : 'Update level'),
                 ),
                 if (_message != null) ...[
                   const SizedBox(height: 16),
@@ -497,7 +577,7 @@ class _AddChallengeItemScreenState extends State<AddChallengeItemScreen> {
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(),
@@ -523,8 +603,9 @@ class _AddChallengeItemScreenState extends State<AddChallengeItemScreen> {
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    if ((value ?? '').trim().isEmpty)
+                    if ((value ?? '').trim().isEmpty) {
                       return 'Title is required.';
+                    }
                     return null;
                   },
                 ),
